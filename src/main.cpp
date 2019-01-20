@@ -1,14 +1,7 @@
 /*
-  WiFiAccessPoint.ino creates a WiFi access point and provides a web server on it.
-
   Steps:
-  1. Connect to the access point "yourAp"
-  2. Point your web browser to http://192.168.4.1/H to turn the LED on or http://192.168.4.1/L to turn it off
-     OR
-     Run raw TCP "GET /H" and "GET /L" on PuTTY terminal with 192.168.4.1 as IP address and 80 as port
-
-  Created for arduino-esp32 on 04 July, 2018
-  by Elochukwu Ifediora (fedy0)
+  1. Connect to the access point.
+  2. Point your web browser to http://192.168.4.1
 */
 
 #include <WiFi.h>
@@ -16,8 +9,7 @@
 #include <WiFiAP.h>
 #include <WebSocketsServer.h>
 
-#define LED_BUILTIN 2   // Set the GPIO pin where you connected your test LED or comment this line out if your dev board has a built-in LED
-const char *_indexPage =
+const char *indexPage =
 #include "index.html"
 	; // ignore the error. it is working.
 
@@ -29,6 +21,7 @@ const char *password = "yourPassword";
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
 
+bool ready = true;
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -40,9 +33,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-        String serIn = Serial.readString();	//read Serial        
-        webSocket.broadcastTXT(serIn);
-        Serial.printf("[%u] get Text: %s\n", num, payload);
+        //Serial.printf("[%u] get Text: %s \n", num, payload);
+        ready = true; // "ok" received. 
   }
 }
 
@@ -54,7 +46,6 @@ void startWebSocket() { // Start a WebSocket server
 }
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
 
   Serial.begin(115200);
   Serial.println();
@@ -67,14 +58,18 @@ void setup() {
   Serial.println(myIP);
   server.begin();
 
-  Serial.println("Server started");
-
   startWebSocket();
-  Serial.println("Websockets started");
 
 }
 
 void loop() {
+  if (Serial.available() && ready){
+        String serIn = Serial.readString();	//read Serial        
+        webSocket.broadcastTXT(serIn); // send serial data over websocket.
+        ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.
+        Serial.println("ok"); // let the device communicating over serial port know we have forwarded the data.
+  }
+
   webSocket.loop();
   WiFiClient client = server.available();   // listen for incoming clients
   
@@ -97,7 +92,7 @@ void loop() {
             //client.println("Connection: Keep-Alive");
             client.println();
 
-            client.print(_indexPage);
+            client.print(indexPage);
             
 
             // The HTTP response ends with another blank line:
@@ -111,12 +106,8 @@ void loop() {
           currentLine += c;      // add it to the end of the currentLine
         }
 
-        // Check to see if the client request was "GET /H" or "GET /L":
+        // Check to see if the client request was "GET /H"
         if (currentLine.endsWith("GET /H")) {
-          digitalWrite(LED_BUILTIN, HIGH);               // GET /H turns the LED on
-        }
-        if (currentLine.endsWith("GET /L")) {
-          digitalWrite(LED_BUILTIN, LOW);                // GET /L turns the LED off
         }
       }
     }
@@ -125,3 +116,4 @@ void loop() {
     Serial.println("Client Disconnected.");
   }
 }
+

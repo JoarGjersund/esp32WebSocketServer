@@ -1,55 +1,93 @@
-
-R"(
+ R"(
 <!DOCTYPE HTML>
 
 <html>
-   <head>
-      
-      <script type = 'text/javascript'>
-         function WebSocketTest() {
-            document.getElementById('sse').style.textDecoration = 'underline overline';
-			var div = document.getElementById('RX');
 
+<head>
+
+    <script type='text/javascript'>
+        var points = [];
+          
+        var ctx = canvas.getContext('2d');
+
+        function drawPoints(obj){
+            ctx.lineTo(obj.x,obj.y);
+            ctx.moveTo(obj.x,obj.y);
+        }
+        function draw(obj) {
+            points.push(obj);
+            var canvas = document.getElementById('canvas');    
+            if (canvas.getContext) {
+                
+                ctx = canvas.getContext('2d');
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                points.forEach(drawPoints);
+                ctx.stroke();
+            }
+        }
+        
+
+        function WebSocketTest() {
+            document.getElementById('sse').style.textDecoration = 'underline overline';
+            var div = document.getElementById('RX');
+            var x = document.getElementById('x');
+            var y = document.getElementById('y');
 
             if ("WebSocket" in window) {
-               alert('WebSocket is supported by your Browser!');
-               
-               // Let us open a web socket
-               var ws = new WebSocket('ws://' + location.hostname + ':81/');
-				
-               ws.onopen = function() {
-                  
-                  // Web Socket is connected, send data using send()
-                  ws.send('ok');
-               };
-				
-               ws.onmessage = function (evt) { 
-                  var received_msg = evt.data;
-				  div.innerHTML += received_msg;
-				  ws.send('ok');
-               };
-				
-               ws.onclose = function() { 
-                  
-                  // websocket is closed.
-                  alert('Connection is closed...'); 
-               };
+                alert('WebSocket is supported by your Browser!');
+
+                // Let us open a web socket
+                var ws = new WebSocket('ws://' + location.hostname + ':81/');
+
+                ws.onopen = function () {
+
+                    // Web Socket is connected, send data using send()
+                    ws.send('ok');
+                };
+
+                ws.onmessage = function (evt) {
+                  //  var received_msg = evt.data;
+                  //  div.innerHTML += received_msg;
+                  //  var obj = JSON.parse(received_msg);
+                   // x.innerHTML += obj.x;
+                    //y.innerHTML += obj.y;
+
+                    //draw(obj);
+
+
+                    ws.send('ok');
+
+
+                };
+
+                ws.onclose = function () {
+
+                    // websocket is closed.
+                    alert('Connection is closed...');
+                };
             } else {
-              
-               // The browser doesn't support WebSocket
-               alert('WebSocket NOT supported by your Browser!');
+
+                // The browser doesn't support WebSocket
+                alert('WebSocket NOT supported by your Browser!');
             }
-         }
-      </script>
-		
-   </head>	
-   
-   <body>
-      <div id = 'sse'>
-         <a onClick= 'WebSocketTest();'>Run WebSocket</a>
-      </div>
-	  <div id = 'RX'></div>
-      
-   </body>
+        }
+    </script>
+
+</head>
+
+<body>
+    x:
+    <div id=x></div>
+    <br> y:
+    <div id=y></div>
+    <br>
+    <div id='sse'>
+        <a onClick='WebSocketTest();'>Run WebSocket</a>
+    </div>
+    <div id='RX'></div>
+    <canvas id=canvas width=1000 height=500 ></canvas> 
+</body>
+
 </html>
 )"
