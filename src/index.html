@@ -6,13 +6,18 @@
 <head>
 
     <script type='text/javascript'>
+
+        function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+        }
         var points = [];
+        var startX = 0;
           
         var ctx = canvas.getContext('2d');
 
         function drawPoints(obj){
-            ctx.lineTo(obj.x,obj.y);
-            ctx.moveTo(obj.x,obj.y);
+            ctx.lineTo(obj.x-startX,obj.y);
+            ctx.moveTo(obj.x-startX,obj.y);
         }
         function draw(obj) {
             points.push(obj);
@@ -22,9 +27,12 @@
                 ctx = canvas.getContext('2d');
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
+                ctx.clearRect(0, 0, 1000, 500);
                 points.forEach(drawPoints);
                 ctx.stroke();
             }
+            if (points.length > 100) points.shift();
+            startX = points[0].x;
         }
         
 
@@ -39,28 +47,32 @@
 
                 // Let us open a web socket
                 var ws = new WebSocket('ws://' + location.hostname + ':81/');
-
+                ws.protocol
                 ws.onopen = function () {
 
                     // Web Socket is connected, send data using send()
-                    ws.send('ok');
+                    //ws.send('ok');
+                    
                 };
-
                 ws.onmessage = function (evt) {
-                  //  var received_msg = evt.data;
-                  //  div.innerHTML += received_msg;
-                  //  var obj = JSON.parse(received_msg);
-                   // x.innerHTML += obj.x;
-                    //y.innerHTML += obj.y;
+                    
+                    var received_msg = evt.data;
+                    
+                    var obj = JSON.parse(received_msg);
+                    x.innerHTML = obj.x;
+                    y.innerHTML = obj.y;
 
-                    //draw(obj);
+                    if (obj.msg != ""){
+                        div.innerHTML += obj.msg;
+                    }
 
+                    draw(obj);
+                   // ws.send('ok');
 
-                    ws.send('ok');
+                    
 
 
                 };
-
                 ws.onclose = function () {
 
                     // websocket is closed.
