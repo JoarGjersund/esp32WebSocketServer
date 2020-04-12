@@ -3,12 +3,13 @@
   1. Connect to the access point.
   2. Point your web browser to http://192.168.4.1
 */
+#define DEBUG_WEBSOCKETS
+#define DEBUG_ESP_PORT Serial
 
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
 #include <WebSocketsServer.h>
-
 const char *indexPage =
 #include "index.html"
 	; // ignore the error. it is working.
@@ -20,6 +21,7 @@ const char *password = "69459191";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
+
 
 bool ready = true;
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
@@ -38,6 +40,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
 
     case WStype_PONG:
         ready = true; // "ok" received. 
+        Serial.println("pong.");
   }
 }
 
@@ -53,9 +56,10 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   Serial.println("Connecting to WiFi");
-
+  
   // You can remove the password parameter if you want the AP to be open.
   WiFi.begin(ssid, password);
+  
   delay(500);
   if (WiFi.status() == WL_CONNECTED) {
     // Print local IP address and start web server
@@ -72,6 +76,7 @@ void setup() {
   }
   server.begin();
   startWebSocket();
+  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
 }
 
 void loop() {
@@ -84,16 +89,24 @@ void loop() {
     ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.        
     webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
   }
+  Serial.println("Clients: "+String(webSocket.connectedClients()));
   String msg = "";
+  int t0 = millis();
   webSocket.broadcastPing(msg);
+  Serial.println("ping.");
+
   webSocket.loop();
-  WiFiClient client = server.available();   // listen for incoming clients
+  Serial.println("websocket loop.");
+  if (millis()-t0 > 100){
+    webSocket.disconnect();
+  }
   
+  WiFiClient client = server.available();   // listen for incoming clients
+
   if (client) {                             // if you get a client,
     Serial.println("New Client.");           // print a message out the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected()) {            // loop while the client's connected
-      webSocket.loop();
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
         Serial.write(c);                    // print it out the serial monitor
