@@ -15,8 +15,8 @@ const char *indexPage =
 
 
 // Set these to your desired credentials.
-const char *ssid = "yourAP";
-const char *password = "yourPassword";
+const char *ssid = "TP-Link_D15F";
+const char *password = "69459191";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
@@ -33,7 +33,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
       }
       break;
     case WStype_TEXT:                     // if new text data is received
-        //Serial.printf("[%u] get Text: %s \n", num, payload);
+        Serial.printf("[%u] get Text: %s \n", num, payload);
+        ready = true; // "ok" received. 
+
+    case WStype_PONG:
         ready = true; // "ok" received. 
   }
 }
@@ -49,27 +52,40 @@ void setup() {
 
   Serial.begin(115200);
   Serial.println();
-  Serial.println("Configuring access point...");
+  Serial.println("Connecting to WiFi");
 
   // You can remove the password parameter if you want the AP to be open.
+  WiFi.begin(ssid, password);
+  delay(500);
+  if (WiFi.status() == WL_CONNECTED) {
+    // Print local IP address and start web server
+    Serial.println("");
+    Serial.println("WiFi connected.");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+  }else{
+  Serial.println("Unable to connect to WiFi. Configuring access point...");
   WiFi.softAP(ssid, password);
   IPAddress myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
   Serial.println(myIP);
+  }
   server.begin();
-
   startWebSocket();
-
 }
 
 void loop() {
-  if (Serial.available() && ready){
-        String serIn = Serial.readString();	//read Serial        
-        webSocket.broadcastTXT(serIn); // send serial data over websocket.
-        ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.
-        Serial.println("ok"); // let the device communicating over serial port know we have forwarded the data.
+  
+  if (ready){
+    String msg = "";
+    //if (Serial.available()){
+    //  msg = Serial.readString();	//read Serial       
+    //}
+    ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.        
+    webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
   }
-
+  String msg = "";
+  webSocket.broadcastPing(msg);
   webSocket.loop();
   WiFiClient client = server.available();   // listen for incoming clients
   
@@ -77,6 +93,7 @@ void loop() {
     Serial.println("New Client.");           // print a message out the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected()) {            // loop while the client's connected
+      webSocket.loop();
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
         Serial.write(c);                    // print it out the serial monitor
