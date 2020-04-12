@@ -37,19 +37,17 @@
         
 
         function WebSocketTest() {
-            document.getElementById('sse').style.textDecoration = 'underline overline';
             var div = document.getElementById('RX');
             var x = document.getElementById('x');
             var y = document.getElementById('y');
 
             if ("WebSocket" in window) {
-                alert('WebSocket is supported by your Browser!');
+                //alert('WebSocket is supported by your Browser!');
 
                 // Let us open a web socket
                 var ws = new WebSocket('ws://' + location.hostname + ':81/');
-                ws.protocol
                 ws.onopen = function () {
-
+                    div.innerHTML="open."
                     // Web Socket is connected, send data using send()
                     //ws.send('ok');
                     
@@ -74,9 +72,12 @@
 
                 };
                 ws.onclose = function () {
-
+                    div.innerHTML="closed."
+                    ws = null
+                    setTimeout(WebSocketTest, 100);     
                     // websocket is closed.
-                    alert('Connection is closed...');
+                    //alert('Connection is closed...');
+                    
                 };
             } else {
 
@@ -88,15 +89,12 @@
 
 </head>
 
-<body>
+<body onload='WebSocketTest();'>
     x:
     <div id=x></div>
     <br> y:
     <div id=y></div>
     <br>
-    <div id='sse'>
-        <a onClick='WebSocketTest();'>Run WebSocket</a>
-    </div>
     <div id='RX'></div>
     <canvas id=canvas width=1000 height=500 ></canvas> 
 </body>
