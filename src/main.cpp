@@ -16,7 +16,7 @@
 #include <WiFiClient.h>
 #include <WiFiAP.h>
 #include <WebSocketsServer.h>
-
+#include <string.h>
 
 
 const char *indexPage =
@@ -33,36 +33,37 @@ WebSocketsServer webSocket(81);
 bool ready = true;
 
 
-
 SemaphoreHandle_t sem;
 TaskHandle_t Task1;
-
 uint8_t *payload_current = NULL;
 
+DynamicJsonDocument doc(1024);
+JsonObject obj;
+Servo yaw;
+int t0 = millis();
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       Serial.printf("[%u] Disconnected!\n", num);
-      break;
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
         Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
       }
-      break;
     case WStype_TEXT:  {
         // if new text data is received
         Serial.printf("[%u] get Text: %s \n", num, payload);
         //ready = true; // "ok" received. 
-        //xSemaphoreTake(sem, 10);
-        payload_current = payload;
-        //xSemaphoreGive(sem);
-
+        if (xSemaphoreTake(sem, 20)){
+          payload_current = payload;
+          
+        }else{
+          Serial.println("sem timeout");
+        }
+        xSemaphoreGive(sem);
+        
       }                   
-      break;
-    case WStype_PONG:
-        ready = true; // "ok" received. 
-        //Serial.println("pong.");
+
   }
 }
 
@@ -75,9 +76,8 @@ void startWebSocket() { // Start a WebSocket server
 }
 
 
-void Task1code( void * pvParameters ){
 
-        
+void Task1code( void * pvParameters ){
 
 
   Servo yaw;
@@ -85,30 +85,35 @@ void Task1code( void * pvParameters ){
   DynamicJsonDocument doc(1024);
   for (;;){  //create an infinate loop
 
-    xSemaphoreTake(sem, 20);
+    xSemaphoreTake(sem, portMAX_DELAY);
     deserializeJson(doc, payload_current);
+    Serial.println("semahphore taken");
+    
     xSemaphoreGive(sem);
 
     JsonObject obj = doc.as<JsonObject>();
+    
     if (obj.containsKey("yaw") && obj["yaw"] != ""){
-      //Serial.println(String(angle))
+      
       int angle = obj["yaw"];
+      Serial.println(String(angle));
       yaw.write(angle);
       
     }
     
     
-    delay(200); // prevent the idle task watchdog from triggering
+    delay(20); // prevent the idle task watchdog from triggering
   }
 }
-
 
 void setup() {
   
   Serial.begin(115200);
 
-  sem = xSemaphoreCreateBinary();
 
+
+  sem = xSemaphoreCreateBinary();
+  xSemaphoreGive(sem);
   xTaskCreatePinnedToCore(
                     Task1code,   /* Task function. */
                     "Task1",     /* name of task. */
@@ -118,6 +123,7 @@ void setup() {
                     // when priority was set to 100 then network scan would not complete
                     &Task1,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */
+
 
 
   Serial.println();
@@ -142,8 +148,9 @@ void setup() {
   }
   server.begin();
   startWebSocket();
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+ // WiFi.setTxPower(WIFI_POWER_19_5dBm);
   server.setTimeout(1);
+  webSocket.enableHeartbeat(100,100,200);
 }
 
 
@@ -153,31 +160,27 @@ void setup() {
 
 void loop() {
   
-  int t0 = millis();
+  
 
-  if (ready){
-
+  if (millis()-t0 > 100){
+    t0 = millis();
     String msg = "";
     //if (Serial.available()){
     //  msg = Serial.readString();	//read Serial       
     //}
     ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.      
-    Serial.println("tx.");  
+   //  Serial.println("tx.");  
     webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
     
   }
   //Serial.println("Clients: "+String(webSocket.connectedClients()));
   String msg = "";
-  Serial.println("ping.");
-  webSocket.broadcastPing(msg);
+ // Serial.println("ping.");
+  //webSocket.broadcastPing(msg);
   
-  Serial.println("rx");
+  // Serial.println("rx");
   webSocket.loop();
-  
-  if (millis()-t0 > 200){
-    Serial.println("DISCONNECT");
-    webSocket.disconnect();
-  }
+
   
   WiFiClient client = server.available();   // listen for incoming clients
 
