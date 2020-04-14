@@ -35,7 +35,7 @@ bool ready = true;
 
 SemaphoreHandle_t sem;
 TaskHandle_t Task1;
-uint8_t *payload_current = NULL;
+uint8_t payload_current[1024];
 
 DynamicJsonDocument doc(1024);
 JsonObject obj;
@@ -55,10 +55,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
         Serial.printf("[%u] get Text: %s \n", num, payload);
         //ready = true; // "ok" received. 
         if (xSemaphoreTake(sem, 20)){
-          payload_current = payload;
+          memcpy(payload_current, payload, lenght);
+
           
-        }else{
-          Serial.println("sem timeout");
         }
         xSemaphoreGive(sem);
         
@@ -87,7 +86,6 @@ void Task1code( void * pvParameters ){
 
     xSemaphoreTake(sem, portMAX_DELAY);
     deserializeJson(doc, payload_current);
-    Serial.println("semahphore taken");
     
     xSemaphoreGive(sem);
 
@@ -102,7 +100,7 @@ void Task1code( void * pvParameters ){
     }
     
     
-    delay(20); // prevent the idle task watchdog from triggering
+    delay(10); // prevent the idle task watchdog from triggering
   }
 }
 
@@ -150,7 +148,7 @@ void setup() {
   startWebSocket();
  // WiFi.setTxPower(WIFI_POWER_19_5dBm);
   server.setTimeout(1);
-  webSocket.enableHeartbeat(100,100,200);
+  webSocket.enableHeartbeat(20,10,10);
 }
 
 
@@ -162,23 +160,16 @@ void loop() {
   
   
 
-  if (millis()-t0 > 100){
+  if (millis()-t0 > 100 && webSocket.connectedClients() > 0){
     t0 = millis();
     String msg = "";
     //if (Serial.available()){
     //  msg = Serial.readString();	//read Serial       
     //}
-    ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.      
-   //  Serial.println("tx.");  
     webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
     
   }
-  //Serial.println("Clients: "+String(webSocket.connectedClients()));
-  String msg = "";
- // Serial.println("ping.");
-  //webSocket.broadcastPing(msg);
-  
-  // Serial.println("rx");
+
   webSocket.loop();
 
   
