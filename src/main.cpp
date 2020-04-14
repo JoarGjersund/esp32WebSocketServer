@@ -3,13 +3,22 @@
   1. Connect to the access point.
   2. Point your web browser to http://192.168.4.1
 */
+#define WEBSOCKETS_TCP_TIMEOUT (100)
+#define WIFI_CLIENT_SELECT_TIMEOUT_US (10000)
+#define WIFI_CLIENT_MAX_WRITE_RETRY   (1)
 #define DEBUG_WEBSOCKETS
 #define DEBUG_ESP_PORT Serial
 
+#include <ctype.h>
+#include <ArduinoJson.h>
+#include <ESP32_Servo.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
 #include <WebSocketsServer.h>
+
+
+
 const char *indexPage =
 #include "index.html"
 	; // ignore the error. it is working.
@@ -21,9 +30,16 @@ const char *password = "69459191";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
-
-
 bool ready = true;
+
+
+
+SemaphoreHandle_t sem;
+TaskHandle_t Task1;
+
+uint8_t *payload_current = NULL;
+
+
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -34,15 +50,22 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
         Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
       }
       break;
-    case WStype_TEXT:                     // if new text data is received
+    case WStype_TEXT:  {
+        // if new text data is received
         Serial.printf("[%u] get Text: %s \n", num, payload);
-        ready = true; // "ok" received. 
+        //ready = true; // "ok" received. 
+        //xSemaphoreTake(sem, 10);
+        payload_current = payload;
+        //xSemaphoreGive(sem);
 
+      }                   
+      break;
     case WStype_PONG:
         ready = true; // "ok" received. 
-        Serial.println("pong.");
+        //Serial.println("pong.");
   }
 }
+
 
 void startWebSocket() { // Start a WebSocket server
   webSocket.begin();                          // start the websocket server
@@ -51,9 +74,52 @@ void startWebSocket() { // Start a WebSocket server
   Serial.println("WebSocket server started.");
 }
 
-void setup() {
 
+void Task1code( void * pvParameters ){
+
+        
+
+
+  Servo yaw;
+  yaw.attach(2);
+  DynamicJsonDocument doc(1024);
+  for (;;){  //create an infinate loop
+
+    xSemaphoreTake(sem, 20);
+    deserializeJson(doc, payload_current);
+    xSemaphoreGive(sem);
+
+    JsonObject obj = doc.as<JsonObject>();
+    if (obj.containsKey("yaw") && obj["yaw"] != ""){
+      //Serial.println(String(angle))
+      int angle = obj["yaw"];
+      yaw.write(angle);
+      
+    }
+    
+    
+    delay(200); // prevent the idle task watchdog from triggering
+  }
+}
+
+
+void setup() {
+  
   Serial.begin(115200);
+
+  sem = xSemaphoreCreateBinary();
+
+  xTaskCreatePinnedToCore(
+                    Task1code,   /* Task function. */
+                    "Task1",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    2,           /* priority of the task */
+                    // when priority was set to 100 then network scan would not complete
+                    &Task1,      /* Task handle to keep track of created task */
+                    0);          /* pin task to core 0 */
+
+
   Serial.println();
   Serial.println("Connecting to WiFi");
   
@@ -76,28 +142,40 @@ void setup() {
   }
   server.begin();
   startWebSocket();
-  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+  server.setTimeout(1);
 }
+
+
+
+
+
 
 void loop() {
   
+  int t0 = millis();
+
   if (ready){
+
     String msg = "";
     //if (Serial.available()){
     //  msg = Serial.readString();	//read Serial       
     //}
-    ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.        
+    ready = false; // client is not ready to receive more data until we receive an "ok" through the websocket.      
+    Serial.println("tx.");  
     webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
+    
   }
-  Serial.println("Clients: "+String(webSocket.connectedClients()));
+  //Serial.println("Clients: "+String(webSocket.connectedClients()));
   String msg = "";
-  int t0 = millis();
-  webSocket.broadcastPing(msg);
   Serial.println("ping.");
-
+  webSocket.broadcastPing(msg);
+  
+  Serial.println("rx");
   webSocket.loop();
-  Serial.println("websocket loop.");
-  if (millis()-t0 > 100){
+  
+  if (millis()-t0 > 200){
+    Serial.println("DISCONNECT");
     webSocket.disconnect();
   }
   
