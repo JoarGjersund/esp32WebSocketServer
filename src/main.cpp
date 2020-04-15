@@ -3,11 +3,6 @@
   1. Connect to the access point.
   2. Point your web browser to http://192.168.4.1
 */
-#define WEBSOCKETS_TCP_TIMEOUT (100)
-#define WIFI_CLIENT_SELECT_TIMEOUT_US (10000)
-#define WIFI_CLIENT_MAX_WRITE_RETRY   (1)
-#define DEBUG_WEBSOCKETS
-#define DEBUG_ESP_PORT Serial
 
 #include <ctype.h>
 #include <ArduinoJson.h>
@@ -17,6 +12,7 @@
 #include <WiFiAP.h>
 #include <WebSocketsServer.h>
 #include <string.h>
+
 
 
 const char *indexPage =
@@ -37,8 +33,6 @@ SemaphoreHandle_t sem;
 TaskHandle_t Task1;
 uint8_t payload_current[1024];
 
-DynamicJsonDocument doc(1024);
-JsonObject obj;
 Servo yaw;
 int t0 = millis();
 
@@ -85,20 +79,17 @@ void Task1code( void * pvParameters ){
   for (;;){  //create an infinate loop
 
     xSemaphoreTake(sem, portMAX_DELAY);
-    deserializeJson(doc, payload_current);
-    
-    xSemaphoreGive(sem);
-
+    deserializeJson(doc, payload_current);  
     JsonObject obj = doc.as<JsonObject>();
     
     if (obj.containsKey("yaw") && obj["yaw"] != ""){
       
       int angle = obj["yaw"];
-      Serial.println(String(angle));
+      //Serial.println(String(angle));
       yaw.write(angle);
       
     }
-    
+    xSemaphoreGive(sem);
     
     delay(10); // prevent the idle task watchdog from triggering
   }
@@ -178,7 +169,8 @@ void loop() {
   if (client) {                             // if you get a client,
     Serial.println("New Client.");           // print a message out the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
+    int t1 = millis();
+    while (client.connected() && millis()-t1 < 100) {            // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
         Serial.write(c);                    // print it out the serial monitor
