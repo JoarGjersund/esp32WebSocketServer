@@ -77,7 +77,7 @@
                     }
 
                     draw(obj);
-                    var outputmsg = '{"yaw":'+m_pos_x+'}';
+                    var outputmsg = '{"yaw":'+m_pos_x/10+'}';
                    ws.send(outputmsg);
 
                     
@@ -87,7 +87,7 @@
                 ws.onclose = function () {
                     div.innerHTML="closed."
                     ws = null
-                    setTimeout(WebSocketTest, 10);     
+                    setTimeout(WebSocketTest, 25);     
                     // websocket is closed.
                     //alert('Connection is closed...');
                     
