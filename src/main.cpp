@@ -75,6 +75,7 @@ void Task1code( void * pvParameters ){
 
   Servo yaw;
   yaw.attach(2);
+
   DynamicJsonDocument doc(1024);
   for (;;){  //create an infinate loop
 
@@ -89,6 +90,13 @@ void Task1code( void * pvParameters ){
       yaw.write(angle);
       
     }
+        if (obj.containsKey("speed") && obj["speed"] != ""){
+      
+      uint8_t speed = obj["speed"];
+      //Serial.println(String(angle));
+      digitalWrite(32, speed);
+      
+    }
     xSemaphoreGive(sem);
     
     delay(10); // prevent the idle task watchdog from triggering
@@ -99,7 +107,8 @@ void setup() {
   
   Serial.begin(115200);
 
-
+  pinMode(32, OUTPUT);
+  digitalWrite(32, HIGH);
 
   sem = xSemaphoreCreateBinary();
   xSemaphoreGive(sem);
