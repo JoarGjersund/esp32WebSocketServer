@@ -24,13 +24,14 @@ const char *indexPage =
 
 
 // Set these to your desired credentials.
-const char *ssid = "Cosgear";
-const char *password = "passwrd";
+const char *ssid = "unknown";
+const char *password = "unknown";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
 bool ready = true;
 
+Adafruit_ADXL343 accel = Adafruit_ADXL343(12345);
 
 SemaphoreHandle_t sem;
 TaskHandle_t Task1;
@@ -110,29 +111,39 @@ void setup() {
   
   Serial.begin(115200);
 
+
+  while(!accel.begin())
+    {
+      /* There was a problem detecting the ADXL343 ... check your connections */
+      Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
+    }
+  accel.setRange(ADXL343_RANGE_16_G);
+
   pinMode(32, OUTPUT);
   digitalWrite(32, HIGH);
 
   sem = xSemaphoreCreateBinary();
   xSemaphoreGive(sem);
+
   xTaskCreatePinnedToCore(
                     Task1code,   /* Task function. */
                     "Task1",     /* name of task. */
                     10000,       /* Stack size of task */
                     NULL,        /* parameter of the task */
-                    2,           /* priority of the task */
-                    // when priority was set to 100 then network scan would not complete
+                    1,           /* priority of the task */
                     &Task1,      /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */
-
-
 
   Serial.println();
   Serial.println("Connecting to WiFi");
   
   // You can remove the password parameter if you want the AP to be open.
   WiFi.begin(ssid, password);
-  
+  while (WiFi.status() != WL_CONNECTED){
+    delay(500);
+    WiFi.begin(ssid, password);
+  }
+
   delay(500);
   if (WiFi.status() == WL_CONNECTED) {
     // Print local IP address and start web server
@@ -151,7 +162,7 @@ void setup() {
   startWebSocket();
  // WiFi.setTxPower(WIFI_POWER_19_5dBm);
   server.setTimeout(1);
-  webSocket.enableHeartbeat(20,10,10);
+  webSocket.enableHeartbeat(100,100,10);
 }
 
 
@@ -161,7 +172,7 @@ void setup() {
 
 void loop() {
   
-  
+
 
   if (millis()-t0 > 100 && webSocket.connectedClients() > 0){
     t0 = millis();
@@ -169,7 +180,10 @@ void loop() {
     //if (Serial.available()){
     //  msg = Serial.readString();	//read Serial       
     //}
-    webSocket.broadcastTXT("{\"y\":"+String(analogRead(34))+", \"x\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
+    sensors_event_t event;
+    accel.getEvent(&event);
+
+    webSocket.broadcastTXT("{\"x\":"+String(round(event.acceleration.x*10))+", \"y\":"+String(round(event.acceleration.y*10))+", \"z\":"+String(round(event.acceleration.z*10))+", \"t\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
     
   }
 

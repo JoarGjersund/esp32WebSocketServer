@@ -7,9 +7,11 @@
 
     <script type='text/javascript'>
         var points = [];
-        var oldX = 0;
-        var startX = 0;
-        var maxY = 1;  
+        var oldT = 0;
+        var startT = 0;
+        var maxX = 1;  
+        var maxY = 1; 
+        var maxZ = 1; 
         var latency = 0;
         var latency_worst = 0;
         window.onmousemove = function(e) { m_pos_x = e.pageX;m_pos_y = e.pageY; }
@@ -21,13 +23,33 @@
         function resetWorstCaseLatency(){
             latency_worst=latency;
         }
+        function resetMaxY(){
+            maxY=1;
+        }
         function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
         }
-        function drawPoints(obj){
-            ctx.lineTo(obj.x-startX,500*obj.y/maxY);
-            ctx.moveTo(obj.x-startX,500*obj.y/maxY);
+        function drawPointsX(obj){
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY);
+            ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY);
+            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY,5,5);
+
         }
+        function drawPointsY(obj){
+            ctx.strokeStyle = '#0000ff';
+            ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX);
+            ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX);
+            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX,5,5);
+
+            }
+        function drawPointsZ(obj){
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ);
+            ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ);
+            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ,5,5);  
+            }
+
         function draw(obj) {
             points.push(obj);
             var canvas = document.getElementById('canvas');    
@@ -36,14 +58,35 @@
                 ctx = canvas.getContext('2d');
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
-                ctx.clearRect(0, 0, 1000, 500);
-                points.forEach(drawPoints);
+                ctx.clearRect(0, 0, 2000, 500);
+
+                ctx.moveTo(0, 0);
+                points.forEach(drawPointsX);
                 ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                points.forEach(drawPointsY);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                points.forEach(drawPointsZ);
+                ctx.stroke();
+                
             }
-            if (points.length > 100) points.shift();
-                startX = points[0].x;
+            if (points.length > 100) {
+                points.shift();
+                startT = points[0].t;
+            }
             if (obj.y > maxY){
                 maxY = obj.y;
+            }
+            if (obj.x > maxX){
+                maxX = obj.x;
+            }
+            if (obj.z > maxZ){
+                maxZ = obj.z;
             }
         }
         function sendYaw(){
@@ -77,8 +120,8 @@
                     
                     var obj = JSON.parse(received_msg);
                     
-                    latency = obj.x-oldX;
-                    oldX = obj.x;
+                    latency = obj.t-oldT;
+                    oldT = obj.t;
                     latency_now.innerHTML = latency;
                     if (latency > latency_worst){
                         latency_worst = latency;
@@ -119,9 +162,11 @@
 </head>
 
 <body onload='WebSocketTest();'>
+
     Latency (ms):
     <div id=latency></div>
     <br>
+
     Latency Worst Case (ms) [<a onclick='resetWorstCaseLatency();'>reset</a>]:
     
     <div id=latency_worst></div>    
@@ -130,7 +175,7 @@
     <br>
     <div id='RX'></div>
     <canvas id=canvas width=2000 height=500 ></canvas> 
-
+<a onclick='resetMaxY'>Resize</a>
 </body>
 </html>
 )"
