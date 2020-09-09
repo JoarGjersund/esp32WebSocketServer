@@ -13,6 +13,9 @@
 #include <WebSocketsServer.h>
 #include <string.h>
 
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_ADXL343.h>
 
 
 const char *indexPage =
@@ -21,8 +24,8 @@ const char *indexPage =
 
 
 // Set these to your desired credentials.
-const char *ssid = "TP-Link_D15F";
-const char *password = "69459191";
+const char *ssid = "Cosgear";
+const char *password = "passwrd";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
