@@ -15,8 +15,12 @@
 
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_ADXL343.h>
+#include <Adafruit_ADXL345_U.h>
 
+#include <LPF.h>
+
+LPF AnalogValueLPF(0.1);			//Create a LPF will a time constant of 1second
+int PostFilteredRawAnalogValue;	//The final filtered value to use in your program, ready for scaling
 
 const char *indexPage =
 #include "index.html"
@@ -24,14 +28,14 @@ const char *indexPage =
 
 
 // Set these to your desired credentials.
-const char *ssid = "unknown";
-const char *password = "unknown";
+const char *ssid = "Cosgear";
+const char *password = "Coswings";
 
 WiFiServer server(80);
 WebSocketsServer webSocket(81);
 bool ready = true;
 
-Adafruit_ADXL343 accel = Adafruit_ADXL343(12345);
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
 SemaphoreHandle_t sem;
 TaskHandle_t Task1;
@@ -39,6 +43,33 @@ uint8_t payload_current[1024];
 
 Servo yaw;
 int t0 = millis();
+
+double phase = 1.0;
+
+double getFrequency(float signal){
+
+  static int ft0 = 0;
+  static int frequency = 1;
+  static bool top = false;
+
+
+  if (signal>10 && !top){
+    ft0 = millis();
+    top = true;
+
+  }else  if (signal<-10 && top){
+    frequency= (frequency+(millis()-ft0) )/2;
+    top = false;
+  }else if (frequency > 1){
+    frequency++;
+  }
+
+
+  return 10000/frequency;
+}
+
+
+
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
   switch (type) {
@@ -117,10 +148,15 @@ void setup() {
       /* There was a problem detecting the ADXL343 ... check your connections */
       Serial.println("Ooops, no ADXL343 detected ... Check your wiring!");
     }
-  accel.setRange(ADXL343_RANGE_16_G);
+  accel.setRange(ADXL345_RANGE_16_G);
 
   pinMode(32, OUTPUT);
+  pinMode(12, OUTPUT);
+  pinMode(14, OUTPUT);
+  pinMode(27, OUTPUT);
   digitalWrite(32, HIGH);
+  digitalWrite(12, HIGH);
+  digitalWrite(14, HIGH);
 
   sem = xSemaphoreCreateBinary();
   xSemaphoreGive(sem);
@@ -139,9 +175,12 @@ void setup() {
   
   // You can remove the password parameter if you want the AP to be open.
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED){
+  int giveup = 5;
+  while (WiFi.status() != WL_CONNECTED && giveup > 0){
     delay(500);
     WiFi.begin(ssid, password);
+    Serial.print(".");
+    giveup--;
   }
 
   delay(500);
@@ -180,10 +219,16 @@ void loop() {
     //if (Serial.available()){
     //  msg = Serial.readString();	//read Serial       
     //}
-    sensors_event_t event;
+    sensors_event_t event;  
     accel.getEvent(&event);
 
-    webSocket.broadcastTXT("{\"x\":"+String(round(event.acceleration.x*10))+", \"y\":"+String(round(event.acceleration.y*10))+", \"z\":"+String(round(event.acceleration.z*10))+", \"t\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
+    phase += 2*PI*getFrequency(event.acceleration.y*10)/100;
+    int dcangle= 180*sin(phase);
+
+    if (dcangle > 0) digitalWrite(27, HIGH); else digitalWrite(27, LOW);
+
+
+    webSocket.broadcastTXT("{\"f\":"+String(round(getFrequency(event.acceleration.y*10)))+", \"w\":"+String(round(dcangle))+", \"x\":"+String(round(event.acceleration.x*10))+", \"y\":"+String(round(event.acceleration.y*10))+", \"z\":"+String(round(event.acceleration.z*10))+", \"t\":" + String(millis())+", \"msg\": \""+ msg+"\"}"); // send serial data over websocket.
     
   }
 

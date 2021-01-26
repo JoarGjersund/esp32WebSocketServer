@@ -9,6 +9,7 @@
         var points = [];
         var oldT = 0;
         var startT = 0;
+        var maxW = 1;
         var maxX = 1;  
         var maxY = 1; 
         var maxZ = 1; 
@@ -29,25 +30,34 @@
         function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
         }
+        function drawPointsW(obj){
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#000000';
+            ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.w/maxW);
+            ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.w/maxW);
+            // ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.w/maxW,5,5);
+
+        }        
         function drawPointsX(obj){
+            ctx.lineWidth = 1;
             ctx.strokeStyle = '#ff0000';
             ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY);
             ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY);
-            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY,5,5);
+            // ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.y/maxY,5,5);
 
         }
         function drawPointsY(obj){
             ctx.strokeStyle = '#0000ff';
             ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX);
             ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX);
-            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX,5,5);
+            // ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.x/maxX,5,5);
 
             }
         function drawPointsZ(obj){
             ctx.strokeStyle = '#00ff00';
             ctx.lineTo(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ);
             ctx.moveTo(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ);
-            ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ,5,5);  
+           // ctx.fillRect(10*(obj.t-startT)/latency_worst,250+250*obj.z/maxZ,5,5);  
             }
 
         function draw(obj) {
@@ -59,6 +69,10 @@
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
                 ctx.clearRect(0, 0, 2000, 500);
+
+                ctx.moveTo(0, 0);
+                points.forEach(drawPointsW);
+                ctx.stroke();
 
                 ctx.moveTo(0, 0);
                 points.forEach(drawPointsX);
@@ -79,6 +93,9 @@
                 points.shift();
                 startT = points[0].t;
             }
+            if (obj.w > maxW){
+                maxW = obj.w;
+            }            
             if (obj.y > maxY){
                 maxY = obj.y;
             }
@@ -99,8 +116,8 @@
             var latency_now = document.getElementById('latency');
             var latency_worstcase = document.getElementById('latency_worst');
             var y = document.getElementById('y');    
-            
-            
+            var w = document.getElementById('w');    
+            var f = document.getElementById('f');  
             if ("WebSocket" in window) {
                 //alert('WebSocket is supported by your Browser!');
 
@@ -129,7 +146,8 @@
                     latency_worstcase.innerHTML = latency_worst;
 
                     y.innerHTML = obj.y;
-
+                    w.innerHTML = obj.w;
+                    f.innerHTML = obj.f;
                     if (obj.msg != ''){
                         div.innerHTML += obj.msg;
                     }
@@ -173,6 +191,12 @@
     <br> y:
     <div id=y></div>
     <br>
+    <br> w:
+    <div id=w></div>
+    <br>
+    <br> f:
+    <div id=f></div>
+    <br>    
     <div id='RX'></div>
     <canvas id=canvas width=2000 height=500 ></canvas> 
 <a onclick='resetMaxY'>Resize</a>
